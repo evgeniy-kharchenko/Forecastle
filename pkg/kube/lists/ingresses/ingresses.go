@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/stakater/Forecastle/v1/pkg/config"
+	"github.com/stakater/Forecastle/v1/pkg/kube/wrappers" // Импортируем wrappers для getNamespacesByLabel
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -30,21 +31,37 @@ func NewList(kubeClient kubernetes.Interface, appConfig config.Config, items ...
 }
 
 // Populate function returns a list of ingresses
+// Если namespaces не указаны, будет использоваться labelSelector для поиска namespace
 func (il *List) Populate(namespaces ...string) *List {
-	for _, namespace := range namespaces {
-		ingresses, err := il.kubeClient.NetworkingV1().Ingresses(namespace).List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			il.err = err
-		}
-		il.items = append(il.items, ingresses.Items...)
-	}
+    // Пример: labelSelector берём из конфига, либо укажи явно
+    labelSelector := il.appConfig.NamespaceLabelSelector // Добавь поле в config.Config!
+    
+    if len(namespaces) == 0 && labelSelector != "" {
+        nsList, err := wrappers.GetNamespacesByLabel(il.kubeClient, labelSelector)
+        if err != nil {
+            il.err = err
+            return il
+        }
+        var nsNames []string
+        for _, ns := range nsList {
+            nsNames = append(nsNames, ns.Name)
+        }
+        namespaces = nsNames
+    }
 
-	return il
+    for _, namespace := range namespaces {
+        ingresses, err := il.kubeClient.NetworkingV1().Ingresses(namespace).List(context.TODO(), metav1.ListOptions{})
+        if err != nil {
+            il.err = err
+        }
+        il.items = append(il.items, ingresses.Items...)
+    }
+
+    return il
 }
 
 // Filter function applies a filter func that is passed as a parameter to the list of ingresses
 func (il *List) Filter(filterFunc FilterFunc) *List {
-
 	var filtered []v1.Ingress
 
 	for _, ingress := range il.items {

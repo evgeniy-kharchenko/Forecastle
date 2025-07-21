@@ -2,10 +2,14 @@ package wrappers
 
 import (
 	"net/url"
-
+	"context"
+	
 	"github.com/stakater/Forecastle/v1/pkg/annotations"
 	"github.com/stakater/Forecastle/v1/pkg/log"
 	v1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 )
 
 var (
@@ -58,6 +62,28 @@ func (iw *IngressWrapper) GetProperties() map[string]string {
 		return makeMap(propertiesFromAnnotations)
 	}
 	return nil
+}
+
+func GetNamespacesByLabel(client kubernetes.Interface, labelSelector string) ([]corev1.Namespace, error) {
+    nsList, err := client.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{
+        LabelSelector: labelSelector,
+    })
+    if err != nil {
+        return nil, err
+    }
+    return nsList.Items, nil
+}
+
+func GetIngressesFromNamespaces(client kubernetes.Interface, namespaces []corev1.Namespace) ([]networkingv1.Ingress, error) {
+    var ingresses []networkingv1.Ingress
+    for _, ns := range namespaces {
+        ingList, err := client.NetworkingV1().Ingresses(ns.Name).List(context.TODO(), metav1.ListOptions{})
+        if err != nil {
+            return nil, err
+        }
+        ingresses = append(ingresses, ingList.Items...)
+    }
+    return ingresses, nil
 }
 
 // GetURL func extracts url of the ingress wrapped by the object

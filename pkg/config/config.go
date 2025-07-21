@@ -14,6 +14,7 @@ type Config struct {
 	InstanceName      string            `yaml:"instanceName" json:"instanceName"`
 	CustomApps        []CustomApp       `yaml:"customApps" json:"customApps"`
 	CRDEnabled        bool              `yaml:"crdEnabled" json:"crdEnabled"`
+	NamespaceLabelSelector string       `yaml:"namespaceLabelSelector" json:"namespaceLabelSelector,omitempty"`
 }
 
 // CustomApp struct for specifying apps that are not generated using ingresses
